@@ -1,0 +1,54 @@
+name: Infrastructure Drift Detection
+
+on:
+  schedule:
+    - cron: "0 6 * * *"  # Daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: "1.14.8"
+  AWS_REGION: "us-east-1"
+
+jobs:
+  drift-check:
+    name: Detect Infrastructure Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Check for Drift
+        id: drift
+        run: |
+          terraform -chdir=terraform plan -detailed-exitcode -no-color > drift-report.txt 2>&1 || EXIT_CODE=$?
+          if [ "${EXIT_CODE}" = "2" ]; then
+            echo "drift_detected=true" >> $GITHUB_OUTPUT
+            echo "DRIFT DETECTED — infrastructure has been modified outside Terraform"
+          else
+            echo "drift_detected=false" >> $GITHUB_OUTPUT
+            echo "No drift detected"
+          fi
+
+      - name: Alert on Drift
+        if: steps.drift.outputs.drift_detected == 'true'
+        run: |
+          aws sns publish \
+            --topic-arn "${{ secrets.SNS_SECURITY_TOPIC }}" \
+            --subject "[DRIFT] Infrastructure changed outside Terraform" \
+            --message file://drift-report.txt

@@ -1,0 +1,19 @@
+branch: main
+compact: true
+directory:
+  - terraform/
+download-external-modules: true
+evaluate-variables: true
+framework:
+  - terraform
+output:
+  - cli
+  - sarif
+quiet: true
+soft-fail: false
+
+# Skip checks that conflict with our architecture decisions
+skip-check:
+  - CKV_AWS_144  # S3 cross-region replication (not needed for single-region)
+  - CKV_AWS_145  # S3 default encryption with CMK (SSE-S3 is sufficient for state)
+  - CKV2_AWS_62  # S3 event notifications (handled separately)
