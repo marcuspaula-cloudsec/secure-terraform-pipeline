@@ -1,9 +1,9 @@
 name: Infrastructure Drift Detection
 
 on:
-  schedule:
-    - cron: "0 6 * * *"  # Daily at 06:00 UTC
-  workflow_dispatch:
+  # schedule:
+  #   - cron: "0 6 * * *"  # Daily at 06:00 UTC — enable after AWS OIDC is configured
+  workflow_dispatch:  # Manual trigger only until infrastructure is live
 
 permissions:
   id-token: write
